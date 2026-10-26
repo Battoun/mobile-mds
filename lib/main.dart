@@ -12,8 +12,8 @@ Future<void> main() async {
 
   // Toujours provisoire à ce stade : la View ne lit pas encore l'état de
   // façon réactive (ça viendra avec Provider), donc on attend le premier
-  // chargement avant de démarrer l'UI.
-  await dashboardViewModel.load();
+  // chargement avant de démarrer l'UI. Pas mettre le .load ici
+  // await dashboardViewModel.load();
   runApp(const MainApp());
 }
 
