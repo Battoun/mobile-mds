@@ -3,17 +3,16 @@ import 'package:flutter/material.dart';
 
 import 'router/app_router.dart';
 
-Future<void> main() async {
+void main() {
   // Étape 4 — preuve que le ViewModel est observable : un simple listener,
   // sans Provider ni widget, qui réagit à chaque notifyListeners().
   dashboardViewModel.addListener(() {
     debugPrint('[DashboardViewModel] state -> ${dashboardViewModel.state.runtimeType}');
   });
 
-  // Toujours provisoire à ce stade : la View ne lit pas encore l'état de
-  // façon réactive (ça viendra avec Provider), donc on attend le premier
-  // chargement avant de démarrer l'UI.
-  await dashboardViewModel.load();
+  // La View écoute désormais le ViewModel : plus besoin d'attendre le
+  // chargement avant runApp, l'écran affiche Loading puis le résultat.
+  dashboardViewModel.load();
   runApp(const MainApp());
 }
 

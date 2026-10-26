@@ -159,3 +159,39 @@ D'après le programme (« ViewModel, états scellés, Provider et tests ») et l
 - [ ] **Tests** du ViewModel avec le `FakeSensorRepository` (succès, erreur, ordre des états publiés)
 
 Objectifs des 7 h : composer un écran avec des widgets · faire évoluer l'UI à partir d'un état · MVVM · Provider + `ChangeNotifier` · Repository · états Loading / Content / Error · tester un ViewModel.
+
+---
+
+## Atelier : fiabiliser l'actualisation (branche `atelier/fiabilisation-actualisation`)
+
+### Scénario de démonstration
+
+Configuré dans [`lib/router/app_router.dart`](lib/router/app_router.dart) :
+`FakeSensorRepository(latency: 3 s, failingCalls: {1, 3})` et un seuil « données anciennes » à 10 s.
+
+| Action | Résultat attendu |
+|---|---|
+| Lancement | Spinner 3 s, puis erreur + bouton **Réessayer** · « Aucune actualisation réussie » |
+| Réessayer | Spinner dans l'AppBar, puis les capteurs · « Dernière actualisation : HH:MM:SS » |
+| Attendre 10 s | Bandeau orange « données anciennes » |
+| ↻ (3e appel) | Erreur, mais l'heure du dernier succès est conservée |
+| ↻ (4e appel) | Succès, heure mise à jour, données de nouveau fraîches |
+| Taper ↻ plusieurs fois | Un seul `fetchAll #n` dans la console par actualisation |
+
+`flutter test` démontre chaque scénario, y compris le compteur d'appels (`repository.callCount`).
+
+### Trajet d'une actualisation
+
+1. **View** : l'utilisateur tape ↻ ou **Réessayer**, ce qui appelle `viewModel.load()`.
+2. **ViewModel** : si `_isLoading` est déjà vrai, l'appel est ignoré (garde anti-superposition). Sinon `_isLoading = true` puis `_setState(Loading)` → `notifyListeners()`.
+3. **View** : `ListenableBuilder` se reconstruit et affiche le spinner (corps + AppBar, bouton ↻ masqué).
+4. **Repository** : `fetchAll()` (le Fake incrémente `callCount`, attend la latence, échoue ou réussit).
+5. **ViewModel** : succès → `_lastSuccessAt = now`, minuteur « données anciennes », `_isLoading = false`, `_setState(Content)`. Erreur → `_isLoading = false`, `_setState(Failure)`, `_lastSuccessAt` inchangé.
+6. **View** : reconstruction via un `switch` exhaustif sur `AsyncState` (Loading / Content / Failure).
+
+### Choix
+
+- **La garde est dans le ViewModel**, pas seulement dans la View : c'est lui qui orchestre les chargements, quelle que soit l'origine de l'appel (bouton, Réessayer, futur pull-to-refresh, reconnexion MQTT). Masquer le bouton dans la View améliore seulement l'expérience utilisateur.
+- **`_isLoading` est mis à jour avant chaque `notifyListeners()`**, pour que la View ne lise jamais un état incohérent.
+- **La date du dernier succès est conservée dans le ViewModel**, et le texte (`lastRefreshLabel`) y est préparé aussi : la View affiche seulement. Une horloge injectable (`clock`) rend ce comportement testable.
+- **`ListenableBuilder`** (natif Flutter) en attendant Provider.

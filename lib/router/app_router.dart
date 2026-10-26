@@ -12,9 +12,17 @@ part 'app_router.g.dart';
 
 // Choix de l'implémentation : pour l'instant le Fake, une vraie API viendra
 // remplacer cette ligne sans que le ViewModel n'ait à changer.
-final SensorRepository sensorRepository = FakeSensorRepository();
+//
+// Scénario de démonstration : réponse lente (3 s), 1er appel en erreur,
+// 2e en succès, 3e en erreur (l'heure du dernier succès est conservée), puis
+// succès. Seuil « données anciennes » réduit à 10 s pour la démo.
+final SensorRepository sensorRepository = FakeSensorRepository(
+  latency: const Duration(seconds: 3),
+  failingCalls: {1, 3},
+);
 final DashboardViewModel dashboardViewModel = DashboardViewModel(
   repository: sensorRepository,
+  staleAfter: const Duration(seconds: 10),
 );
 
 @TypedGoRoute<DashboardRoute>(
